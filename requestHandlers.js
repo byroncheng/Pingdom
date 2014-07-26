@@ -79,14 +79,20 @@ function getCheck(response){
 			'Check name is: '+data.checks[0].name+
 		'</div>';
 
+		pingdom.getSummaryOutage(username, password, key, checkID, {"from":"1404172800"}, function(data){
+			data.summary.states.forEach(function(entry){
+				if (entry.status==='down'){
+					console.log(entry);
+				};
+			});
+		});
+
 		response.writeHead(200, {"Content-Type": "text/html"});
 		response.write(body);
 		response.end();
 	});
 
-	pingdom.getSummaryOutage(username, password, key, checkID, function(data){
-		
-	})
+	
 
 }
 
