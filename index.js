@@ -7,6 +7,7 @@ var handle = {}
 handle["/"] = requestHandlers.start;
 handle["/start"] = requestHandlers.start;
 handle["/getCheck"] = requestHandlers.getCheck;
+handle["/outages"] = requestHandlers.outages;
 
 server.start(router.route, handle);
 /*$(document).ready(function() {
