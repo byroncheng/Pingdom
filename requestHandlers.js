@@ -1,16 +1,11 @@
-var cheerio = require("cheerio");
 var pingdom = require("pingdom");
-var script = require("./script");
-var key = "wsr7j0dct331625r573kvv9b5x8ud7c1";
-var username = "me@mymailserver.net";
-var password = "MdKo5uecg19X";
+var fs = require("fs");
+
 var results;
-//var pingdomChecks;
-//var pingdomOutages;
-//var checkID;
 
 function start(response){
 	console.log("Request handler 'start' was called.");
+	var hasCreds;
 
 	var body =
 	'<html>'+
@@ -32,16 +27,33 @@ function start(response){
         '<div class = "content"></div>'+
     '</div>'+
 
-    '<div class="debug"></div>'+
+    '<div class="debug">'+'</div>'+
     
     
 	'</body>'+
 	'</html>';
 
-
 	response.writeHead(200, {"Content-Type": "text/html"});
 	response.write(body);
 	response.end();
+
+	var credsJSON = fs.readFile('credentials.json', 'utf-8', function(err,data){
+		if (err){
+			console.log("Missing Credentials.json");
+			hasCreds = "Missing Credentials.json";
+		}
+		else{
+			hasCreds = "Credentials.json was loaded";
+			var creds = JSON.parse(data);
+
+			//loads in authentication for pingdom api
+			key = creds.key;
+			username = creds.username;
+			password = creds.password;
+		}
+
+	});
+	
 }
 
 function getCheck(response){
@@ -110,6 +122,7 @@ function getCheck(response){
 //refactored
 
 function outages(response){
+	console.log("Request handler 'outages' was called");
 	getCheckID(response, getOutages);
 }
 
@@ -195,6 +208,8 @@ function convertDate(unix_time){
 
 	return month+'/'+date+'/'+year+' '+time;
 }
+
+
 
 // Export Methods
 exports.start = start;
