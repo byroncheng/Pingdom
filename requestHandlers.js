@@ -59,7 +59,7 @@ function getCheck(response){
     	'<h1>Outage List</h2>'+
     	pingdomOutages+
     '</div>'+
-    '<div class = "content"><a href="/">Go Back</a></div>'+
+    '<br><div class = "content"><a href="/">Go Back</a></div>'+
     
     '<div class="debug"></div>'+
         
@@ -80,16 +80,32 @@ function getCheck(response){
 		'</div>';
 
 		pingdom.getSummaryOutage(username, password, key, checkID, {"from":"1404172800"}, function(data){
+			var pingdomOutages;
+
 			data.summary.states.forEach(function(entry){
 				if (entry.status==='down'){
-					console.log(entry);
+
+					pingdomOutages+=
+					'<div class = "outage">'+
+					'Down at '+
+					//entry.timefrom+
+					convertDate(entry.timefrom)+
+					', up at '+
+					//entry.timeto+
+					convertDate(entry.timeto)+
+					'</div>';
+
+
+					console.log('Down at '+entry.timefrom+', up at '+entry.timeto);
 				};
 			});
+
+			response.writeHead(200, {"Content-Type": "text/html"});
+			response.write(body);
+			response.end();
 		});
 
-		response.writeHead(200, {"Content-Type": "text/html"});
-		response.write(body);
-		response.end();
+		
 	});
 
 	
@@ -98,3 +114,45 @@ function getCheck(response){
 
 exports.start = start;
 exports.getCheck = getCheck;
+
+
+function summaryOutage(callback){
+	if (err) {
+		console.log("An error ocurred in function summaryOutage");
+		callback(err);
+	}
+	pingdom.getSummaryOutage(username, password, key, checkID, {"from":"1404172800"}, function(data){
+		var pingdomOutages;
+
+		data.summary.states.forEach(function(entry){
+			if (entry.status==='down'){
+
+				pingdomOutages+=
+				'<div class = "outage">'+
+				'Down at '+
+				//entry.timefrom+
+				convertDate(entry.timefrom)+
+				', up at '+
+				//entry.timeto+
+				convertDate(entry.timeto)+
+				'</div>';
+
+
+				console.log('Down at '+entry.timefrom+', up at '+entry.timeto);
+			};
+		});
+	});
+}
+
+function convertDate(unix_time){
+	//create javascript date object, and get it into ms
+	var date = new Date(unix_time*1000);
+	var year = date.getFullYear();
+	var month = date.getMonth();
+	var day = date.getDate();
+	var hours = date.getHours();
+	var minutes = date.getMinutes();
+	var seconds = date.getSeconds();
+
+	return month+'/'+day+'/'+year+' '+hours+':'+minutes+':'+seconds;
+}
