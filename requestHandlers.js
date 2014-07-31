@@ -64,7 +64,6 @@ function start(res){
 function outages(res, req){
 	console.log("Request handler 'outages' was called");
 	var query = url.parse(req.url, true).query;
-	console.log(query);
 
 	if(query.startDate==''|query.endDate==''){
 		var body =
@@ -94,13 +93,13 @@ function outages(res, req){
 		res.end();	
 	}
 	else{
-		getCheckID(res, getOutages);
+		getCheckID(res, req, getOutages);
 	}
 }
 
-function getCheckID(res, callback){
+function getCheckID(res, req, callback){
 	pingdom.getChecks(username, password, key, function(data){
-		console.log(data);
+		//console.log(data);
 		checkID=data.checks[0].id;
 
 		var pingdomChecks = 
@@ -112,12 +111,16 @@ function getCheckID(res, callback){
 		'</div>';
 
 		//run callback
-		callback(checkID, pingdomChecks, res, showResults)
+		callback(checkID, pingdomChecks, res, req, showResults)
 	});
 }
 
-function getOutages(checkID, pingdomChecks, res, callback){
-	pingdom.getSummaryOutage(username, password, key, checkID, {"from":"1404172800", "to":"1406764800"}, function(data){
+function getOutages(checkID, pingdomChecks, res, req, callback){
+	var fromDate = url.parse(req.url, true).query.startDate;
+	var toDate = url.parse(req.url, true).query.endDate;
+	
+
+	pingdom.getSummaryOutage(username, password, key, checkID, {"from":dateToUnix(fromDate), "to":dateToUnix(toDate)}, function(data){
 		//console.log(data.summary.states);
 
 		var pingdomOutages = '<table>';
@@ -182,9 +185,10 @@ function unixToDate(unix_time){
 }
 
 function dateToUnix(inputDate){
-	var unixDate = new date(inputDate);
-	// console.log(unixDate.getTime());
-	return unixDate.getTime();
+	var unixDate = new Date(inputDate);
+	console.log('date is '+unixDate);
+	console.log('unix time is '+(unixDate.getTime()/1000));
+	return (unixDate.getTime()/1000);
 }
 
 
