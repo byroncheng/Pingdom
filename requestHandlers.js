@@ -1,9 +1,10 @@
 var pingdom = require("pingdom");
 var fs = require("fs");
+var url = require("url");
 
 var results;
 
-function start(response){
+function start(res){
 	console.log("Request handler 'start' was called.");
 	var hasCreds;
 
@@ -35,9 +36,9 @@ function start(response){
 	'</body>'+
 	'</html>';
 
-	response.writeHead(200, {"Content-Type": "text/html"});
-	response.write(body);
-	response.end();
+	res.writeHead(200, {"Content-Type": "text/html"});
+	res.write(body);
+	res.end();
 
 	var credsJSON = fs.readFile('credentials.json', 'utf-8', function(err,data){
 		if (err){
@@ -60,12 +61,44 @@ function start(response){
 
 //refactored
 
-function outages(response){
+function outages(res, req){
 	console.log("Request handler 'outages' was called");
-	getCheckID(response, getOutages);
+	var query = url.parse(req.url, true).query;
+	console.log(query);
+
+	if(query.startDate==''|query.endDate==''){
+		var body =
+		'<html>'+
+		'<head>'+
+			'<title>Pingdom Reporter</title>'+
+		'</head>'+
+		'<body>'+
+	    '<div class = "checks">'+
+	    	'<h1>Error</h1>'+
+	    	'Missing Start or End date'+
+	    	'<form action="/outages">'+
+		    	'Start Date: <input type="date" name="startDate" /><br>'+
+		    	'End Date: <input type="date" name="endDate" /><br>'+
+		    	'<input type="submit" value="Get Check" />'+
+	    	'</form>'+
+	    '</div>'+
+	    '<br><div class = "content"><a href="/">Go Back</a></div>'+
+	    
+	    '<div class="debug"></div>'+
+	        
+		'</body>'+
+		'</html>';
+
+		res.writeHead(200, {"Content-Type": "text/html"});
+		res.write(body);
+		res.end();	
+	}
+	else{
+		getCheckID(res, getOutages);
+	}
 }
 
-function getCheckID(response, callback){
+function getCheckID(res, callback){
 	pingdom.getChecks(username, password, key, function(data){
 		console.log(data);
 		checkID=data.checks[0].id;
@@ -79,12 +112,12 @@ function getCheckID(response, callback){
 		'</div>';
 
 		//run callback
-		callback(checkID, pingdomChecks, response, showResults)
+		callback(checkID, pingdomChecks, res, showResults)
 	});
 }
 
-function getOutages(checkID, pingdomChecks, response, callback){
-	pingdom.getSummaryOutage(username, password, key, checkID, {"from":"1404172800"}, function(data){
+function getOutages(checkID, pingdomChecks, res, callback){
+	pingdom.getSummaryOutage(username, password, key, checkID, {"from":"1404172800", "to":"1406764800"}, function(data){
 		//console.log(data.summary.states);
 
 		var pingdomOutages = '<table>';
@@ -94,20 +127,20 @@ function getOutages(checkID, pingdomChecks, response, callback){
 				pingdomOutages+=
 				'<tr><td>'+
 				//entry.timefrom+
-				convertDate(entry.timefrom)+'</td><td>'+entry.status+
+				unixToDate(entry.timefrom)+'</td><td>'+entry.status+
 				'</td></tr><tr><td>'+
 				//entry.timeto+
-				convertDate(entry.timeto)+
+				unixToDate(entry.timeto)+
 				'</td><td>'+entry.status+'</td></tr>';
 			//};
 		});
 
 		pingdomOutages += '</table>';
-		callback(pingdomChecks, pingdomOutages, response)
+		callback(pingdomChecks, pingdomOutages, res)
 	});
 }
 
-function showResults(pingdomChecks, pingdomOutages, response){
+function showResults(pingdomChecks, pingdomOutages, res){
 	var body =
 	'<html>'+
 	'<head>'+
@@ -127,18 +160,18 @@ function showResults(pingdomChecks, pingdomOutages, response){
 	'</body>'+
 	'</html>';
 
-	response.writeHead(200, {"Content-Type": "text/html"});
-	response.write(body);
-	response.end();
+	res.writeHead(200, {"Content-Type": "text/html"});
+	res.write(body);
+	res.end();
 }
 
 
 // helper functions
-function convertDate(unix_time){
+function unixToDate(unix_time){
 	//create javascript date object, and get it into ms
 	var fullDate = new Date(unix_time*1000);
 	var year = fullDate.getFullYear();
-	var month = fullDate.getMonth();
+	var month = fullDate.getMonth()+1;
 	var date = fullDate.getDate();
 	var time = fullDate.toLocaleTimeString();
 	var hours = fullDate.getHours();
@@ -148,9 +181,13 @@ function convertDate(unix_time){
 	return month+'/'+date+'/'+year+' '+time;
 }
 
+function dateToUnix(inputDate){
+	var unixDate = new date(inputDate);
+	// console.log(unixDate.getTime());
+	return unixDate.getTime();
+}
 
 
 // Export Methods
 exports.start = start;
-exports.getCheck = getCheck;
 exports.outages = outages;
