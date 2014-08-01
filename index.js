@@ -6,7 +6,8 @@ var requestHandlers = require("./requestHandlers")
 var handle = {}
 handle["/"] = requestHandlers.start;
 handle["/start"] = requestHandlers.start;
-handle["/getCheck"] = requestHandlers.getCheck;
+handle["/test"] = requestHandlers.test;
 handle["/outages"] = requestHandlers.outages;
+handle["/error"] = requestHandlers.error;
 
 server.start(router.route, handle);

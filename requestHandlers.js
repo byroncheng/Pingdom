@@ -4,6 +4,7 @@ var url = require("url");
 
 var results;
 
+//start handler
 function start(res){
 	console.log("Request handler 'start' was called.");
 	var hasCreds;
@@ -59,8 +60,7 @@ function start(res){
 	
 }
 
-//refactored
-
+//makes web service calls to get outage data
 function outages(res, req){
 	console.log("Request handler 'outages' was called");
 	var query = url.parse(req.url, true).query;
@@ -115,6 +115,7 @@ function getCheckID(res, req, callback){
 	});
 }
 
+//calls the summary.outage function of pingdom api with start and end dates
 function getOutages(checkID, pingdomChecks, res, req, callback){
 	var fromDate = url.parse(req.url, true).query.startDate;
 	var toDate = url.parse(req.url, true).query.endDate;
@@ -143,6 +144,7 @@ function getOutages(checkID, pingdomChecks, res, req, callback){
 	});
 }
 
+//used to display the results of pingdom checks
 function showResults(pingdomChecks, pingdomOutages, res){
 	var body =
 	'<html>'+
@@ -170,6 +172,8 @@ function showResults(pingdomChecks, pingdomOutages, res){
 
 
 // helper functions
+
+//converts unix date to words for display
 function unixToDate(unix_time){
 	//create javascript date object, and get it into ms
 	var fullDate = new Date(unix_time*1000);
@@ -184,6 +188,7 @@ function unixToDate(unix_time){
 	return month+'/'+date+'/'+year+' '+time;
 }
 
+//converts date to unix for web service call
 function dateToUnix(inputDate){
 	var unixDate = new Date(inputDate);
 	console.log('date is '+unixDate);
@@ -191,7 +196,61 @@ function dateToUnix(inputDate){
 	return (unixDate.getTime()/1000);
 }
 
+function getCreds(res, req){
+	var hasCreds;
+	fs.readFile('credentfials.json', 'utf-8', function(err,data){
+		if (err){
+			//console.log(err.stack);
+			hasCreds = "Missing Credentials.json";
+			error(err.stack, res, req);
+		}
+		else{
+			hasCreds = "Credentials.json was loaded";
+			var creds = JSON.parse(data);
+
+			//loads in authentication for pingdom api
+			key = creds.key;
+			username = creds.username;
+			password = creds.password;
+			//hasCreds = (creds !== undefined && creds.username !== undefined && creds.password !== undefined && creds.key !== undefined);
+
+			return(creds);
+		}
+	});
+	//console.log(hasCreds);
+
+}
+
+function test(res, req){
+	console.log(getCreds(res,req));
+}
+
+function error(error, res, req){
+	var body =
+	'<html>'+
+	'<head>'+
+		'<title>Pingdom Reporter</title>'+
+	'</head>'+
+	'<body>'+
+    '<div class = "Error">'+
+    	'<h1>Error</h1>'+
+    	error+
+    '</div>'+
+    '<br><div class = "content"><a href="/">Go Back</a></div>'+
+    
+    '<div class="debug"></div>'+
+        
+	'</body>'+
+	'</html>';
+
+	res.writeHead(200, {"Content-Type": "text/html"});
+	res.write(body);
+	res.end();
+}
+
 
 // Export Methods
 exports.start = start;
 exports.outages = outages;
+exports.test = test;
+exports.error = error;
