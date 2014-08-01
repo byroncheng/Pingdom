@@ -2,19 +2,12 @@ var pingdom = require("pingdom");
 var fs = require("fs");
 var url = require("url");
 
-var results;
-
 //start handler
-function start(res){
+function start(res, req){
 	console.log("Request handler 'start' was called.");
 	var hasCreds;
 
-	var body =
-	'<html>'+
-	'<head>'+
-		'<title>Pingdom Reporter</title>'+
-	'</head>'+
-	'<body>'+
+	var content =
     '<div class = "checks">'+
     	'<h1>Pingdom Checks</h1>'+
     	'<form action="/outages">'+
@@ -25,38 +18,8 @@ function start(res){
         '<div class = "checkID">'+
         '</div>'+
         '<div class = "checkName"></div>'+
-    '</div>'+
-    '<div class = "outages">'+
-        '<h1>Pingdom Outages</h1>'+
-        '<div class = "content"></div>'+
-    '</div>'+
-
-    '<div class="debug">'+'</div>'+
-    
-    
-	'</body>'+
-	'</html>';
-
-	res.writeHead(200, {"Content-Type": "text/html"});
-	res.write(body);
-	res.end();
-
-	var credsJSON = fs.readFile('credentials.json', 'utf-8', function(err,data){
-		if (err){
-			console.log("Missing Credentials.json");
-			hasCreds = "Missing Credentials.json";
-		}
-		else{
-			hasCreds = "Credentials.json was loaded";
-			var creds = JSON.parse(data);
-
-			//loads in authentication for pingdom api
-			key = creds.key;
-			username = creds.username;
-			password = creds.password;
-		}
-
-	});
+    '</div>';
+    output(content, res, req);
 	
 }
 
@@ -98,20 +61,22 @@ function outages(res, req){
 }
 
 function getCheckID(res, req, callback){
-	pingdom.getChecks(username, password, key, function(data){
-		//console.log(data);
-		checkID=data.checks[0].id;
 
-		var pingdomChecks = 
-		'<div class = "checkID">'+
+	getCreds(res,req,function(creds){
+		pingdom.getChecks(creds.username, creds.password, creds.key, function(data){
+			checkID=data.checks[0].id;
+
+			var pingdomChecks = 
+			'<div class = "checkID">'+
 			'Check ID is: '+data.checks[0].id+
-		'</div>'+
-		'<div class = "checkName">'+
+			'</div>'+
+			'<div class = "checkName">'+
 			'Check name is: '+data.checks[0].name+
-		'</div>';
+			'</div>';
 
-		//run callback
-		callback(checkID, pingdomChecks, res, req, showResults)
+			//run callback
+			callback(checkID, pingdomChecks, res, req, showResults)
+		});
 	});
 }
 
@@ -120,54 +85,42 @@ function getOutages(checkID, pingdomChecks, res, req, callback){
 	var fromDate = url.parse(req.url, true).query.startDate;
 	var toDate = url.parse(req.url, true).query.endDate;
 	
+	getCreds(res,req,function(creds){
+		pingdom.getSummaryOutage(creds.username, creds.password, creds.key, checkID, {"from":dateToUnix(fromDate), "to":dateToUnix(toDate)}, function(data){
+			//console.log(data.summary.states);
 
-	pingdom.getSummaryOutage(username, password, key, checkID, {"from":dateToUnix(fromDate), "to":dateToUnix(toDate)}, function(data){
-		//console.log(data.summary.states);
+			var pingdomOutages = '<table>';
 
-		var pingdomOutages = '<table>';
+			data.summary.states.forEach(function(entry){
+				//if (entry.status==='down'){
+					pingdomOutages+=
+					'<tr><td>'+
+					//entry.timefrom+
+					unixToDate(entry.timefrom)+'</td><td>'+entry.status+
+					'</td></tr><tr><td>'+
+					//entry.timeto+
+					unixToDate(entry.timeto)+
+					'</td><td>'+entry.status+'</td></tr>';
+				//};
+			});
 
-		data.summary.states.forEach(function(entry){
-			//if (entry.status==='down'){
-				pingdomOutages+=
-				'<tr><td>'+
-				//entry.timefrom+
-				unixToDate(entry.timefrom)+'</td><td>'+entry.status+
-				'</td></tr><tr><td>'+
-				//entry.timeto+
-				unixToDate(entry.timeto)+
-				'</td><td>'+entry.status+'</td></tr>';
-			//};
+			pingdomOutages += '</table>';
+			callback(pingdomChecks, pingdomOutages, res, req)
 		});
-
-		pingdomOutages += '</table>';
-		callback(pingdomChecks, pingdomOutages, res)
 	});
 }
 
 //used to display the results of pingdom checks
-function showResults(pingdomChecks, pingdomOutages, res){
-	var body =
-	'<html>'+
-	'<head>'+
-		'<title>Pingdom Reporter</title>'+
-	'</head>'+
-	'<body>'+
+function showResults(pingdomChecks, pingdomOutages, res, req){
+	var content =
     '<div class = "checks">'+
     	'<h1>Pingdom Checks</h1>'+
     	pingdomChecks+
     	'<h1>Outage List</h2>'+
     	pingdomOutages+
-    '</div>'+
-    '<br><div class = "content"><a href="/">Go Back</a></div>'+
-    
-    '<div class="debug"></div>'+
-        
-	'</body>'+
-	'</html>';
+    '</div>';
 
-	res.writeHead(200, {"Content-Type": "text/html"});
-	res.write(body);
-	res.end();
+    output(content, res, req)
 }
 
 
@@ -192,20 +145,27 @@ function unixToDate(unix_time){
 function dateToUnix(inputDate){
 	var unixDate = new Date(inputDate);
 	console.log('date is '+unixDate);
-	console.log('unix time is '+(unixDate.getTime()/1000));
+	// console.log('unix time is '+(unixDate.getTime()/1000));
 	return (unixDate.getTime()/1000);
 }
 
-function getCreds(res, req){
+function getCreds(res, req , callback){
 	var hasCreds;
-	fs.readFile('credentfials.json', 'utf-8', function(err,data){
+	fs.readFile('credentials.json', 'utf-8', function(err,data){
 		if (err){
 			//console.log(err.stack);
 			hasCreds = "Missing Credentials.json";
-			error(err.stack, res, req);
+			console.log(hasCreds);
+			errMsg = 
+			'<div class = "Error">'+
+				'<h1>Error</h1>'+
+				'<p>'+err.stack+'<p>'+
+			'</div>';
+			output(errMsg, res, req);
 		}
 		else{
 			hasCreds = "Credentials.json was loaded";
+			console.log(hasCreds);
 			var creds = JSON.parse(data);
 
 			//loads in authentication for pingdom api
@@ -213,30 +173,23 @@ function getCreds(res, req){
 			username = creds.username;
 			password = creds.password;
 			//hasCreds = (creds !== undefined && creds.username !== undefined && creds.password !== undefined && creds.key !== undefined);
-
-			return(creds);
+			callback(creds);
 		}
 	});
-	//console.log(hasCreds);
 
 }
 
-function test(res, req){
-	console.log(getCreds(res,req));
-}
 
-function error(error, res, req){
+//error message function
+function output(content, res, req){
 	var body =
 	'<html>'+
 	'<head>'+
 		'<title>Pingdom Reporter</title>'+
 	'</head>'+
 	'<body>'+
-    '<div class = "Error">'+
-    	'<h1>Error</h1>'+
-    	error+
-    '</div>'+
-    '<br><div class = "content"><a href="/">Go Back</a></div>'+
+    content+
+    '<br><div class = "return"><a href="/">Back to start</a></div>'+
     
     '<div class="debug"></div>'+
         
@@ -253,4 +206,11 @@ function error(error, res, req){
 exports.start = start;
 exports.outages = outages;
 exports.test = test;
-exports.error = error;
+exports.output = output;
+
+//test function just used to call stuff by itself
+function test(res, req){
+	getCreds(res,req, function(entry){console.log(entry)});
+	//res.write(getCreds(res,req));
+	
+}

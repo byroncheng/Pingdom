@@ -8,6 +8,6 @@ handle["/"] = requestHandlers.start;
 handle["/start"] = requestHandlers.start;
 handle["/test"] = requestHandlers.test;
 handle["/outages"] = requestHandlers.outages;
-handle["/error"] = requestHandlers.error;
+handle["/output"] = requestHandlers.output;
 
 server.start(router.route, handle);
